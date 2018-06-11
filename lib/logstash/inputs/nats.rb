@@ -93,13 +93,12 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
     @nats.on_close do
       @logger.info("Connection to NATS closed")
     end
-    Stud.interval(@interval) do
-      sid = @nats.subscribe(@subject, :queue => @queue_group) { |msg|
-        @logger.info("Received a message: '#{msg}'")
-        event = LogStash::Event.new("message" => msg)
-        decorate(event)
-        queue << event
-      }
-    end
+      
+    sid = @nats.subscribe(@subject, :queue => @queue_group) { |msg|
+      @logger.info("Received a message: '#{msg}'")
+      event = LogStash::Event.new("message" => msg)
+      decorate(event)
+      queue << event
+    }
   end
 end # class LogStash::Inputs::Example
