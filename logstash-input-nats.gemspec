@@ -5,8 +5,8 @@ Gem::Specification.new do |s|
   s.summary       = 'Read events from a nats channel'
   s.description   = 'This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program'
   s.homepage      = 'http://www.elastic.co/guide/en/logstash/current/index.html'
-  s.authors       = ['Benoit Bitarelle']
-  s.email         = 'bbitarelle@gmail.com'
+  s.authors       = ['lliknart']
+  s.email         = 'lliknart31@gmail.com'
   s.require_paths = ['lib']
 
   # Files
