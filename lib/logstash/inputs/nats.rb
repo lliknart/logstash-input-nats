@@ -2,7 +2,6 @@
 require "logstash/inputs/base"
 require "logstash/namespace"
 require "nats/client"
-require "socket" # for Socket.gethostname
 
 # Add any asciidoc formatted documentation here
 # Generate a repeating message.
@@ -80,14 +79,6 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
 
   def run(queue)
     ['TERM', 'INT'].each { |s| trap(s) {  puts; exit! } }
-    def time_prefix
-      "[#{Time.now}] " if $show_time
-    end
-
-    def header
-      $i=0 unless $i
-      "#{time_prefix}[\##{$i+=1}]"
-    end
 
     NATS.on_error { |err| puts "Server Error: #{err}"; exit! }
 
@@ -96,7 +87,6 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
         puts "Listening on [#{subject}]" #unless $show_raw
         NATS.subscribe(subject, :queue => @queue_group ) do |msg, _, sub|
           @codec.decode(msg) do |event|
-          #event = LogStash::Event.new("message" => msg, "host" => @host)
             decorate(event)
             event.set("nats_subject", sub)
             queue << event
@@ -116,7 +106,7 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
         nats_server = "nats://#{@user}:#{@pass.value}@#{@host}:#{@port}"
       end
     else
-      @logger.warn("Parameter 'url' is set, ignoring connection parameters: 'host', 'port', 'user'and 'pass'")
+      @logger.warn("Parameter 'url' is set, ignoring connection parameters: 'host', 'port', 'user' and 'pass'")
       nats_server = @url
     end
     return nats_server
