@@ -1,8 +1,7 @@
 # encoding: utf-8
 require "logstash/inputs/base"
 require "logstash/namespace"
-require "stud/interval"
-require "nats/io/client"
+require "nats/client"
 require "socket" # for Socket.gethostname
 
 # Add any asciidoc formatted documentation here
@@ -34,10 +33,10 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   config :user, :validate => :string, :required => false
  
   # Password to authenticate with
-  config :pass, :validate => :string, :required => false
+  config :pass, :validate => :password, :required => false
 
-  # The subject name ti subscribe on
-  config :subject, :validate => :string, :required => true, :default => "bite"
+  # List of subjects to subscribe on
+  config :subjects, :validate => :array, :default => ["logstash"]
 
   # The queue group to join if needed
   config :queue_group, :validate => :string, :required => false
@@ -57,48 +56,70 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   # Turns on additional strict format checking
   config :pedantic, :validate => :boolean, :default => false
 
-  # TOREMOVE #bite pour s'en rapeller
+  # Time to wait before reconnecting
+  config :reconnect_time_wait, :validate => :number
 
-  config :interval, :validate => :number, :default => 1
+  # Number of attempts to connect on nats server
+  config :max_reconnect_attempts, :validate => :number
 
   public
-  def register
-    #@nats_server = @url.nil? ? "nats://#{@user}:#{@pass}@#{@host}:#{@port}" : "#{@url}"
-    @nats_server = @url.nil? ? "nats://#{@host}:#{@port}" : "#{@url}"
+  def register 
 
-    @nats = NATS::IO::Client.new
-    @nats.connect(:verbose => @verbose,
-                  :pedantic => @pedantic,
-                  :servers => [@nats_server])
-    logger.info("Connected to #{@nats.connected_server}")
-
-    @identity = "#{@nats_url} #{@subject}"
-    @logger.info("Registering Nats", :identity => @identity)
+    @nats_server = build_nats_server
+    
+    @nats_config = {
+      uri: @nats_server,
+      ssl: @ssl,
+      pedantic: @pedantic,
+      verbose: @verbose,
+      reconnect_time_wait: @reconnect_time_wait.nil? ? nil : @reconnect_time_wait.value,
+      max_reconnect_attempts: @max_reconnect_attempts.nil? ? nil : @max_reconnect_attempts.value
+    }
   end # def register
 
+
   def run(queue)
-    @nats.on_error do |e|
-      @logger.info("Error: #{e}")
-      @logger.info(e.backtrace)
+    ['TERM', 'INT'].each { |s| trap(s) {  puts; exit! } }
+    def time_prefix
+      "[#{Time.now}] " if $show_time
     end
 
-    @nats.on_reconnect do
-      @logger.info("Reconnected to server at #{@nats.connected_server}")
+    def header
+      $i=0 unless $i
+      "#{time_prefix}[\##{$i+=1}]"
     end
 
-    @nats.on_disconnect do
-      @logger.info("Disconnected!")
-    end
+    NATS.on_error { |err| puts "Server Error: #{err}"; exit! }
 
-    @nats.on_close do
-      @logger.info("Connection to NATS closed")
+    NATS.start(@nats_config) do
+      @subjects.each do |subject|
+        puts "Listening on [#{subject}]" #unless $show_raw
+        NATS.subscribe(subject, :queue => @queue_group ) do |msg, _, sub|
+          @codec.decode(msg) do |event|
+          #event = LogStash::Event.new("message" => msg, "host" => @host)
+            decorate(event)
+            event.set("nats_subject", sub)
+            queue << event
+          end
+        end
+      end
     end
-      
-    sid = @nats.subscribe(@subject, :queue => @queue_group) { |msg|
-      @logger.info("Received a message: '#{msg}'")
-      event = LogStash::Event.new("message" => msg)
-      decorate(event)
-      queue << event
-    }
   end
-end # class LogStash::Inputs::Example
+
+  private 
+
+  def build_nats_server
+    if @url.nil?
+      if @user.nil? || @pass.nil?
+        nats_server = "nats://#{@host}:#{@port}"
+      else
+        nats_server = "nats://#{@user}:#{@pass.value}@#{@host}:#{@port}"
+      end
+    else
+      @logger.warn("Parameter 'url' is set, ignoring connection parameters: 'host', 'port', 'user'and 'pass'")
+      nats_server = @url
+    end
+    return nats_server
+  end  
+
+end # class LogStash::Inputs::Nats
