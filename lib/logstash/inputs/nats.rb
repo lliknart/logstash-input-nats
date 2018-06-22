@@ -3,10 +3,49 @@ require "logstash/inputs/base"
 require "logstash/namespace"
 require "nats/client"
 
-# Add any asciidoc formatted documentation here
-# Generate a repeating message.
+# .Compatibility Note
+# [NOTE]
+# ================================================================================
+# This plugin does not support SSL authentication yet
+# 
+# ================================================================================
+
+# This input plugin will read events from a NATS instance; it does not support NATS streaming instance.
+# This plugin used the following ruby nats client: https://github.com/nats-io/ruby-nats
+# 
+# For more information about Nats, see <http://nats.io>
 #
-# This plugin is intended only as an example.
+# Examples:
+#
+# [source,ruby]
+#   input {
+#     # Read events on subject "example" by using an "url" without authentication
+#     nats {
+#       url => "nats://localhost:4222"
+#       subjects => ["example"]
+#     }
+#   }
+#
+# [source,ruby]
+#   input {
+#     # Read events on subject "example" by using an "url" with authentication
+#     nats {
+#       url => "nats://user:passwd@localhost:4222"
+#       subjects => ["example"]
+#     }
+#   }
+#
+# [source,ruby]
+#   input {
+#     # Read events on two subjects by using other paramaters
+#     nats {
+#       host => "localhost"
+#       port => 4222
+#       user => "user"
+#       pass => "password"
+#       subjects => [ "first", "second" ]
+#     }
+#   }
 
 class LogStash::Inputs::Nats < LogStash::Inputs::Base
   config_name "nats"
