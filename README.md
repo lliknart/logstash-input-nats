@@ -71,7 +71,7 @@ gem build logstash-input-nats.gemspec
 ```
 - Install the plugin from the Logstash home
 ```sh
-bin/logstash-plugin install /your/local/plugin/logstash-input-nats-.gem
+bin/logstash-plugin install /your/local/plugin/logstash-input-nats.gem
 ```
 - Start Logstash and proceed to test the plugin
 
