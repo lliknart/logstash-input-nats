@@ -117,14 +117,13 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
 
 
   def run(queue)
-    ['TERM', 'INT'].each { |s| trap(s) {  puts; exit! } }
-
-    NATS.on_error { |err| puts "Server Error: #{err}"; exit! }
-
-    NATS.start(@nats_config) do
+    NATS.start(@nats_config) do |nats_client|
+      nats_client.on_error do |error|
+        @logger.error(error)
+      end
       @subjects.each do |subject|
-        puts "Listening on [#{subject}]" #unless $show_raw
-        NATS.subscribe(subject, :queue => @queue_group ) do |msg, _, sub|
+        @logger.debug("Listening on [#{subject}]")
+        nats_client.subscribe(subject, :queue => @queue_group ) do |msg, _, sub|
           @codec.decode(msg) do |event|
             decorate(event)
             event.set("nats_subject", sub)
